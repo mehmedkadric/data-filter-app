@@ -1,4 +1,4 @@
-# data-filter-app
+# Data Filter App
 
 ## About
 
