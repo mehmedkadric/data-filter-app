@@ -1,6 +1,6 @@
 import os
 # import pandas as pd
-from pandas import read_csv, read_excel, concat
+from pandas import read_csv, read_excel, concat, DataFrame
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import traceback
@@ -63,49 +63,49 @@ def search_excel(excel_file, search_query, export_folder, usecols=[]):
     print('search_query', search_query)
     matching_rows = []
 
-    # Use pandas chunksize parameter to read the CSV file in smaller chunks
-#    chunksize = 1000  # You can adjust this value based on available RAM
-    df_excel = object()
+    df_excel = DataFrame()
+
+    file_extension = os.path.splitext(excel_file)[-1].lower()
+    engine = 'openpyxl' if file_extension == '.xlsx' else 'xlrd'
+
     if usecols:
-        df_excel = read_excel(excel_file, usecols=usecols, dtype=str)
+        df_excel = read_excel(excel_file, usecols=usecols,
+                              dtype=str, engine=engine)
     else:
-        df_excel = read_excel(excel_file, dtype=str)
+        df_excel = read_excel(excel_file, dtype=str, engine=engine)
 
     query = " & ".join(f"({condition})" for condition in search_query)
+    print('query:', query)
     matching_excel = df_excel.query(query)
     matching_rows.append(matching_excel)
 
     # Concatenate all the matching chunks into a single DataFrame
     result_df = concat(matching_rows, ignore_index=True)
+    print('result_df:', result_df)
 
     unique_name = output_format_input.get()
 
-    # Export the results to a new CSV file in the export folder
+    # Construct the export filename for both CSV and Excel formats
+    base_filename = os.path.splitext(os.path.basename(excel_file))[0]
     if output_format_options.get() == 'csv':
-        export_filename = f"{unique_name}_{os.path.basename(excel_file).replace('.csv', '')}_SearchResults.csv"
-    else:
-        export_filename = f"{unique_name}_{os.path.basename(excel_file).replace('.csv', '')}_SearchResults.xlsx"
-
-    export_file = os.path.join(os.path.dirname(excel_file), export_filename)
-
-    if output_format_options.get() == 'csv':
+        export_filename = f"{unique_name}{base_filename}_SearchResults.csv"
+        export_file = os.path.join(export_folder, export_filename)
         result_df.to_csv(export_file, index=False)
     else:
+        export_filename = f"{unique_name}{base_filename}_SearchResults.xlsx"
+        export_file = os.path.join(export_folder, export_filename)
         result_df.to_excel(export_file, index=False)
 
-    print('result_df', result_df)
+    print('Exported to:', export_file)
 
     return export_file, len(result_df)
 
 
 def browse_folder():
-    file_path = filedialog.askopenfilename(
-        filetypes=[("CSV files", "*.csv"), ("XLSX files", "*.xlsx"),
-                   ("XLS files", "*.xls")]
-    )
-    if file_path:
+    folder_path = filedialog.askdirectory()  # Select a folder
+    if folder_path:
         folder_entry.delete(0, tk.END)  # Clear the entry widget
-        folder_entry.insert(0, file_path)  # Insert the selected file path
+        folder_entry.insert(0, folder_path)  # Insert the selected file path
         populate_column_options()  # You can define this function to populate columns
 
 
@@ -140,12 +140,20 @@ def browse_fields_filter():
         column2_options.set(all_columns_list[0])
         # Set the first column as the default
         column3_options.set(all_columns_list[0])
+        # Set the first column as the default
+        column4_options.set(all_columns_list[0])
+        # Set the first column as the default
+        column5_options.set(all_columns_list[0])
 
         column1_dropdown["menu"].delete(
             0, tk.END)  # Clear the existing options
         column2_dropdown["menu"].delete(
             0, tk.END)  # Clear the existing options
         column3_dropdown["menu"].delete(
+            0, tk.END)  # Clear the existing options
+        column4_dropdown["menu"].delete(
+            0, tk.END)  # Clear the existing options
+        column5_dropdown["menu"].delete(
             0, tk.END)  # Clear the existing options
 
         for column in all_columns_list:
@@ -155,6 +163,10 @@ def browse_fields_filter():
                 label=column, command=tk._setit(column2_options, column))
             column3_dropdown["menu"].add_command(
                 label=column, command=tk._setit(column3_options, column))
+            column4_dropdown["menu"].add_command(
+                label=column, command=tk._setit(column4_options, column))
+            column5_dropdown["menu"].add_command(
+                label=column, command=tk._setit(column5_options, column))
 
 
 def execute_search():
@@ -171,6 +183,16 @@ def execute_search():
     value2 = value2_entry.get()
     column3 = column3_options.get()
     value3 = value3_entry.get()
+    column4 = column4_options.get()
+    value4 = value4_entry.get()
+    column5 = column5_options.get()
+    value5 = value5_entry.get()
+    column6 = column6_options.get()
+    value6 = value6_entry.get()
+    column7 = column7_options.get()
+    value7 = value7_entry.get()
+    column8 = column8_options.get()
+    value8 = value8_entry.get()
 
     if not folder_path or not column1 or not value1:
         messagebox.showwarning("Missing Information",
@@ -179,21 +201,25 @@ def execute_search():
 
     # Define total_rows here
     total_rows = 0
+    export_files = []
 
     # Get the selected logic (AND or OR)
     selected_logic = logic_var.get()
 
-    # Find all CSV files in the folder and its subdirectories
-    csv_files = []
-    excel_files = []
-
     # Get the directory path and the file name from the selected file path
     directory_path = os.path.dirname(folder_path)
     file_name = os.path.basename(folder_path)
+    print(file_name)
 
     # Initialize the lists to store CSV and Excel files
     csv_files = []
     excel_files = []
+
+    # Find all CSV and Excel files in the folder and its subdirectories
+    csv_files = [file for file in os.listdir(
+        folder_path) if file.lower().endswith('.csv')]
+    excel_files = [file for file in os.listdir(folder_path) if file.lower(
+    ).endswith('.xls') or file.lower().endswith('.xlsx')]
 
     # Check if the selected file is a CSV file
     if file_name.endswith(".csv"):
@@ -209,6 +235,8 @@ def execute_search():
         return
 
     for csv_file in csv_files:
+        print(csv_file)
+        csv_file = folder_path + "/" + csv_file
         print(csv_file)
         export_file = ''
         try:
@@ -241,12 +269,47 @@ def execute_search():
                     else:  # "exact match"
                         query_list.append(
                             f"{column3}.str.lower() == '{value3.lower()}'")
+                if value4 and column4:
+                    if search_type4_var.get() == "contains":
+                        query_list.append(
+                            f"`{column4}`.str.contains('{value4}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column4}.str.lower() == '{value4.lower()}'")
+
+                if value5 and column5:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column5}`.str.contains('{value5}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column5}.str.lower() == '{value5.lower()}'")
+                if value6 and column6:
+                    if search_type6_var.get() == "contains":
+                        query_list.append(
+                            f"`{column6}`.str.contains('{value6}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column6}.str.lower() == '{value6.lower()}'")
+                if value7 and column7:
+                    if search_type7_var.get() == "contains":
+                        query_list.append(
+                            f"`{column7}`.str.contains('{value7}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column7}.str.lower() == '{value7.lower()}'")
+                if value8 and column8:
+                    if search_type7_var.get() == "contains":
+                        query_list.append(
+                            f"`{column8}`.str.contains('{value8}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column8}.str.lower() == '{value8.lower()}'")
 
                 combined_query = " & ".join(query_list)
                 export_file, rows_found = search_csv(
                     csv_file, [combined_query], folder_path, columns_filter)
                 total_rows += rows_found
-
             else:  # "OR" logic
                 query_list = []
 
@@ -273,19 +336,55 @@ def execute_search():
                     else:  # "exact match"
                         query_list.append(
                             f"{column3}.str.lower() == '{value3.lower()}'")
+                if value4 and column4:
+                    if search_type4_var.get() == "contains":
+                        query_list.append(
+                            f"`{column4}`.str.contains('{value4}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column4}.str.lower() == '{value4.lower()}'")
+
+                if value5 and column5:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column5}`.str.contains('{value5}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column5}.str.lower() == '{value5.lower()}'")
+                if value6 and column6:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column6}`.str.contains('{value6}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column6}.str.lower() == '{value6.lower()}'")
+                if value7 and column7:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column7}`.str.contains('{value7}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column7}.str.lower() == '{value7.lower()}'")
+                if value8 and column8:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column8}`.str.contains('{value8}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column8}.str.lower() == '{value8.lower()}'")
 
                 if query_list:
                     combined_query = " | ".join(query_list)
                     export_file, rows_found = search_csv(
                         csv_file, [combined_query], folder_path, columns_filter)
                     total_rows += rows_found
-                output_format_input.delete(0, tk.END)
 
         except Exception as e:
             error_message = f"Error: {str(e)}"
             log_error(error_message)
 
     for excel_file in excel_files:
+        excel_file = folder_path + "/" + excel_file
         export_file = ''
         try:
             columns_filter = get_columns_filter(config_file)
@@ -317,6 +416,42 @@ def execute_search():
                     else:  # "exact match"
                         query_list.append(
                             f"{column3}.str.lower() == '{value3.lower()}'")
+                if value4 and column4:
+                    if search_type4_var.get() == "contains":
+                        query_list.append(
+                            f"`{column4}`.str.contains('{value4}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column4}.str.lower() == '{value4.lower()}'")
+
+                if value5 and column5:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column5}`.str.contains('{value5}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column5}.str.lower() == '{value5.lower()}'")
+                if value6 and column6:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column6}`.str.contains('{value6}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column6}.str.lower() == '{value6.lower()}'")
+                if value7 and column7:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column7}`.str.contains('{value7}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column7}.str.lower() == '{value7.lower()}'")
+                if value8 and column8:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column8}`.str.contains('{value8}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column8}.str.lower() == '{value8.lower()}'")
 
                 combined_query = " & ".join(query_list)
                 export_file, rows_found = search_excel(
@@ -349,95 +484,161 @@ def execute_search():
                     else:  # "exact match"
                         query_list.append(
                             f"{column3}.str.lower() == '{value3.lower()}'")
+                if value4 and column4:
+                    if search_type4_var.get() == "contains":
+                        query_list.append(
+                            f"`{column4}`.str.contains('{value4}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column4}.str.lower() == '{value4.lower()}'")
+
+                if value5 and column5:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column5}`.str.contains('{value5}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column5}.str.lower() == '{value5.lower()}'")
+                if value6 and column6:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column6}`.str.contains('{value6}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column6}.str.lower() == '{value6.lower()}'")
+                if value7 and column7:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column7}`.str.contains('{value7}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column7}.str.lower() == '{value7.lower()}'")
+                if value8 and column8:
+                    if search_type5_var.get() == "contains":
+                        query_list.append(
+                            f"`{column8}`.str.contains('{value8}', case=False, na=False)")
+                    else:  # "exact match"
+                        query_list.append(
+                            f"{column8}.str.lower() == '{value8.lower()}'")
 
                 if query_list:
                     combined_query = " | ".join(query_list)
                     export_file, rows_found = search_excel(
                         excel_file, [combined_query], folder_path, columns_filter)
                     total_rows += rows_found
-                output_format_input.delete(0, tk.END)
 
         except Exception as e:
             error_message = f"Error: {str(e)}"
             log_error(error_message)
 
-    messagebox.showinfo(
-        "Search Completed", f"Search completed for {len(csv_files)} CSV file(s).\nTotal rows exported: {total_rows}")
+    # Display separate messages if CSV or Excel files are processed
+    if len(csv_files) > 0 and len(excel_files) > 0:
+        messagebox.showinfo(
+            "Search Completed", f"Search completed for {len(csv_files)} CSV file(s) and {len(excel_files)} Excel file(s).\nTotal rows exported: {total_rows}")
+        output_format_input.delete(0, tk.END)
+    elif len(csv_files) > 0:
+        messagebox.showinfo(
+            "Search Completed", f"Search completed for {len(csv_files)} CSV file(s).\nTotal rows exported: {total_rows}")
+        output_format_input.delete(0, tk.END)
+    elif len(excel_files) > 0:
+        messagebox.showinfo(
+            "Search Completed", f"Search completed for {len(excel_files)} Excel file(s).\nTotal rows exported: {total_rows}")
+        output_format_input.delete(0, tk.END)
 
 
 def populate_column_options():
     cfg_filename = os.getcwd().replace('\\', '/') + '/new.cfg'
-    file_path = folder_entry.get()  # Get the selected file path
-    if file_path:
-        csv_files = []
-        excel_files = []
+    folder_path = folder_entry.get()  # Get the selected folder path
+    if folder_path:
+        try:
+            # Find all CSV and Excel files in the selected folder
+            csv_files = [file for file in os.listdir(
+                folder_path) if file.lower().endswith('.csv')]
+            excel_files = [file for file in os.listdir(folder_path) if file.lower(
+            ).endswith('.xls') or file.lower().endswith('.xlsx')]
 
-        # Extract the directory path from the selected file path
-        directory_path = os.path.dirname(file_path)
+            # Combine the lists of CSV and Excel files
+            all_files = csv_files + excel_files
 
-        # Determine the file extension of the selected file
-        file_extension = os.path.splitext(file_path)[1].lower()
+            if all_files:
+                # Get the path of the first file
+                file_path = os.path.join(folder_path, all_files[0])
 
-        if file_extension == ".csv":
-            csv_files.append(file_path)
-        elif file_extension == ".xls" or file_extension == ".xlsx":
-            excel_files.append(file_path)
+                # Determine the file extension of the selected file
+                file_extension = os.path.splitext(file_path)[1].lower()
 
-        if csv_files or excel_files:
-            try:
-                all_columns = set()  # Use a set to store unique column names from all files
-                for file in csv_files + excel_files:
-                    try:
-                        if file_extension == ".csv":
-                            df = read_csv(file, encoding='utf-8',
-                                          nrows=1, dtype=str)
-                        elif file_extension == ".xls" or file_extension == ".xlsx":
-                            df = read_excel(file, nrows=1, dtype=str)
+                df = None  # Initialize df variable
 
-                        columns = set(df.columns.tolist())
-                        all_columns.update(columns)
-                    except:
-                        pass
+                if file_extension == ".csv":
+                    df = read_csv(file_path, encoding='utf-8',
+                                  nrows=1, dtype=str)
+                elif file_extension == ".xls" or file_extension == ".xlsx":
+                    df = read_excel(file_path, nrows=1, dtype=str)
 
-                # Sort the columns for consistent display
-                all_columns_list = sorted(list(all_columns))
-                # Set the first column as the default
-                column1_options.set(all_columns_list[0])
-                # Set the first column as the default
-                column2_options.set(all_columns_list[0])
-                # Set the first column as the default
-                column3_options.set(all_columns_list[0])
+                if df is not None:
+                    # Get the columns from the DataFrame's header
+                    all_columns_list = df.columns.tolist()
 
-                column1_dropdown["menu"].delete(
-                    0, tk.END)  # Clear the existing options
-                column2_dropdown["menu"].delete(
-                    0, tk.END)  # Clear the existing options
-                column3_dropdown["menu"].delete(
-                    0, tk.END)  # Clear the existing options
+                    # Set the first column as the default
+                    column1_options.set(all_columns_list[0])
+                    column2_options.set(all_columns_list[0])
+                    column3_options.set(all_columns_list[0])
+                    column4_options.set(all_columns_list[0])
+                    column5_options.set(all_columns_list[0])
+                    column6_options.set(all_columns_list[0])
+                    column7_options.set(all_columns_list[0])
+                    column8_options.set(all_columns_list[0])
 
-                for column in all_columns_list:
-                    column1_dropdown["menu"].add_command(
-                        label=column, command=tk._setit(column1_options, column))
-                    column2_dropdown["menu"].add_command(
-                        label=column, command=tk._setit(column2_options, column))
-                    column3_dropdown["menu"].add_command(
-                        label=column, command=tk._setit(column3_options, column))
+                    column1_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column2_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column3_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column4_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column5_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column6_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column7_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
+                    column8_dropdown["menu"].delete(
+                        0, tk.END)  # Clear the existing options
 
-                cfg_out = open(cfg_filename, 'w')
-                for column in all_columns_list:
-                    cfg_out.write(column + '\n')
-                cfg_out.close()
+                    for column in all_columns_list:
+                        column1_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column1_options, column))
+                        column2_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column2_options, column))
+                        column3_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column3_options, column))
+                        column4_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column4_options, column))
+                        column5_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column5_options, column))
+                        column6_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column6_options, column))
+                        column7_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column7_options, column))
+                        column8_dropdown["menu"].add_command(
+                            label=column, command=tk._setit(column8_options, column))
 
-            except Exception as e:
-                traceback.print_exc()  # Print the full stack trace of the exception
-                messagebox.showerror(
-                    "Error", f"An error occurred while reading the file: {str(e)}")
+                    cfg_out = open(cfg_filename, 'w')
+                    for column in all_columns_list:
+                        cfg_out.write(str(column) + '\n')
+                    cfg_out.close()
+
+        except Exception as e:
+            traceback.print_exc()  # Print the full stack trace of the exception
+            messagebox.showerror(
+                "Error", f"An error occurred while reading the file: {str(e)}")
 
 
 # Create the GUI window
 window = tk.Tk()
 window.title("CSV Search and Export")
-window.geometry("1200x400")  # Adjust the window size
+window.geometry("885x685")  # Adjust the window size
 
 # Create an OptionMenu for logic selection
 logic_var = tk.StringVar(window)
@@ -451,7 +652,7 @@ logic_dropdown.grid(row=0, column=5, padx=5, pady=5, sticky=tk.W)
 search_button = tk.Button(window, text="Search", command=execute_search)
 
 # Create and place the widgets using the grid layout manager
-folder_label = tk.Label(window, text="File:")
+folder_label = tk.Label(window, text="Folder:")
 folder_entry = tk.Entry(window, width=60)
 browse_folder_button = tk.Button(window, text="Browse", command=browse_folder)
 
@@ -463,6 +664,16 @@ column2_options = tk.StringVar(window)
 column2_dropdown = tk.OptionMenu(window, column2_options, "")
 column3_options = tk.StringVar(window)
 column3_dropdown = tk.OptionMenu(window, column3_options, "")
+column4_options = tk.StringVar(window)
+column4_dropdown = tk.OptionMenu(window, column4_options, "")
+column5_options = tk.StringVar(window)
+column5_dropdown = tk.OptionMenu(window, column5_options, "")
+column6_options = tk.StringVar(window)
+column6_dropdown = tk.OptionMenu(window, column6_options, "")
+column7_options = tk.StringVar(window)
+column7_dropdown = tk.OptionMenu(window, column7_options, "")
+column8_options = tk.StringVar(window)
+column8_dropdown = tk.OptionMenu(window, column8_options, "")
 
 output_format_label = tk.Label(window, text="Output format:")
 output_format_options = tk.StringVar(window)
@@ -480,6 +691,22 @@ value2_entry = tk.Entry(window, width=60)
 search_label3 = tk.Label(window, text="Value 3:")
 value3_entry = tk.Entry(window, width=60)
 
+search_label4 = tk.Label(window, text="Value 4:")
+value4_entry = tk.Entry(window, width=60)
+
+search_label5 = tk.Label(window, text="Value 5:")
+value5_entry = tk.Entry(window, width=60)
+
+search_label6 = tk.Label(window, text="Value 6:")
+value6_entry = tk.Entry(window, width=60)
+
+search_label7 = tk.Label(window, text="Value 7:")
+value7_entry = tk.Entry(window, width=60)
+
+search_label8 = tk.Label(window, text="Value 8:")
+value8_entry = tk.Entry(window, width=60)
+
+
 search_type1_var = tk.StringVar(window)
 search_type1_var.set("contains")
 search_type1_dropdown = tk.OptionMenu(
@@ -494,6 +721,31 @@ search_type3_var = tk.StringVar(window)
 search_type3_var.set("contains")
 search_type3_dropdown = tk.OptionMenu(
     window, search_type3_var, "contains", "exact match")
+
+search_type4_var = tk.StringVar(window)
+search_type4_var.set("contains")
+search_type4_dropdown = tk.OptionMenu(
+    window, search_type4_var, "contains", "exact match")
+
+search_type5_var = tk.StringVar(window)
+search_type5_var.set("contains")
+search_type5_dropdown = tk.OptionMenu(
+    window, search_type5_var, "contains", "exact match")
+
+search_type6_var = tk.StringVar(window)
+search_type6_var.set("contains")
+search_type6_dropdown = tk.OptionMenu(
+    window, search_type6_var, "contains", "exact match")
+
+search_type7_var = tk.StringVar(window)
+search_type7_var.set("contains")
+search_type7_dropdown = tk.OptionMenu(
+    window, search_type7_var, "contains", "exact match")
+
+search_type8_var = tk.StringVar(window)
+search_type8_var.set("contains")
+search_type8_dropdown = tk.OptionMenu(
+    window, search_type8_var, "contains", "exact match")
 
 
 # Place the widgets using the grid layout manager
@@ -516,26 +768,52 @@ column3_dropdown.grid(row=4, column=1, padx=5, pady=5, sticky=tk.W + tk.E)
 search_label3.grid(row=4, column=2, padx=5, pady=5, sticky=tk.W)
 value3_entry.grid(row=4, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
 
+column4_dropdown.grid(row=5, column=1, padx=5, pady=5, sticky=tk.W + tk.E)
+search_label4.grid(row=5, column=2, padx=5, pady=5, sticky=tk.W)
+value4_entry.grid(row=5, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
+
+column5_dropdown.grid(row=6, column=1, padx=5, pady=5, sticky=tk.W + tk.E)
+search_label5.grid(row=6, column=2, padx=5, pady=5, sticky=tk.W)
+value5_entry.grid(row=6, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
+
+column6_dropdown.grid(row=7, column=1, padx=5, pady=5, sticky=tk.W + tk.E)
+search_label6.grid(row=7, column=2, padx=5, pady=5, sticky=tk.W)
+value6_entry.grid(row=7, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
+
+column7_dropdown.grid(row=8, column=1, padx=5, pady=5, sticky=tk.W + tk.E)
+search_label7.grid(row=8, column=2, padx=5, pady=5, sticky=tk.W)
+value7_entry.grid(row=8, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
+
+column8_dropdown.grid(row=9, column=1, padx=5, pady=5, sticky=tk.W + tk.E)
+search_label8.grid(row=9, column=2, padx=5, pady=5, sticky=tk.W)
+value8_entry.grid(row=9, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
+
+
 search_type1_dropdown.grid(row=2, column=4, padx=5, pady=5, sticky=tk.W)
 search_type2_dropdown.grid(row=3, column=4, padx=5, pady=5, sticky=tk.W)
 search_type3_dropdown.grid(row=4, column=4, padx=5, pady=5, sticky=tk.W)
+search_type4_dropdown.grid(row=5, column=4, padx=5, pady=5, sticky=tk.W)
+search_type5_dropdown.grid(row=6, column=4, padx=5, pady=5, sticky=tk.W)
+search_type6_dropdown.grid(row=7, column=4, padx=5, pady=5, sticky=tk.W)
+search_type7_dropdown.grid(row=8, column=4, padx=5, pady=5, sticky=tk.W)
+search_type8_dropdown.grid(row=9, column=4, padx=5, pady=5, sticky=tk.W)
 
 
-output_format_label.grid(row=5, column=0, padx=5, pady=5, sticky=tk.W)
-output_format_dropdown.grid(row=5, column=1, padx=5, pady=5, sticky=tk.W)
+output_format_label.grid(row=10, column=0, padx=5, pady=5, sticky=tk.W)
+output_format_dropdown.grid(row=10, column=1, padx=5, pady=5, sticky=tk.W)
 
 # Create and place the input field for output format
 output_filename_prefix = tk.Label(window, text="Output filename prefix: ")
 output_format_input = tk.Entry(window)
-output_format_input.grid(row=5, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
-output_filename_prefix.grid(row=5, column=2, padx=5, pady=5, sticky=tk.W)
+output_format_input.grid(row=10, column=3, padx=5, pady=5, sticky=tk.W + tk.E)
+output_filename_prefix.grid(row=10, column=2, padx=5, pady=5, sticky=tk.W)
 
-search_button.grid(row=6, column=0, columnspan=5,
+search_button.grid(row=11, column=0, columnspan=5,
                    padx=5, pady=5, sticky=tk.W + tk.E)
 
 
 error_text = tk.Text(window, height=10, width=80)
-error_text.grid(row=7, column=0, columnspan=5, padx=5, pady=5)
+error_text.grid(row=12, column=0, columnspan=5, padx=5, pady=5)
 
 
 def log_error(error_message):
