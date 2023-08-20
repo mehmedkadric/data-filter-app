@@ -1,4 +1,4 @@
-# data-filter-app
+# Data Filter App
 
 ## About
 
@@ -26,3 +26,11 @@ You have the option to package the application for easy distribution on differen
 1. Install `pyinstaller` by running: `pip install pyinstaller`
 2. Run the following command: `pyinstaller --onefile find_csv2xls_3.py`. This will create a packaged application (`.exe`).
 3. The resulting application will be found in the `dist` directory within your project folder.
+
+
+## Technologies Used
+- Python
+- Pandas
+- tkinter
+
+The script combines these technologies to create a user-friendly graphical interface for searching and filtering CSV and Excel files based on specified conditions. It leverages pandas for efficient data handling and tkinter for the graphical interface components.
